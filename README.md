@@ -141,5 +141,5 @@ MIT License - Feel free to use, modify, and share!
 Have fun with the hand constellation! Feel free to fork, star, and create your own version. Share your creative uses on social media!
 
 ---
-
-**Made with ✨ and Python**
+***Creator ***
+     ~Sameeha Farheen
