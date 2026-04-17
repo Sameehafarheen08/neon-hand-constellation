@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Hand Constellation</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #0a0e27;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #fff;
+        }
+
+        .container {
+            position: relative;
+            width: 800px;
+            height: 600px;
+            background: #1a1f3a;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 0 50px rgba(255, 200, 0, 0.3);
+            border: 2px solid rgba(255, 200, 0, 0.2);
+        }
+
+        #video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            transform: scaleX(-1);
+            opacity: 0.6;
+        }
+
+        #canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            cursor: crosshair;
+        }
+
+        .status {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px 25px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 200, 0, 0.5);
+            z-index: 10;
+            font-size: 14px;
+        }
+
+        .title {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            font-size: 20px;
+            font-weight: bold;
+            text-shadow: 0 0 20px rgba(255, 200, 0, 0.8);
+            z-index: 10;
+        }
+
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 30px 50px;
+            border-radius: 15px;
+            z-index: 20;
+            text-align: center;
+        }
+
+        .loading.hidden {
+            display: none;
+        }
+
+        .spinner {
+            border: 4px solid rgba(255, 200, 0, 0.2);
+            border-top: 4px solid #ffc800;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="title">✨ Neon Hand Constellation</div>
+        <video id="video" autoplay playsinline muted></video>
+        <canvas id="canvas"></canvas>
+        <div class="status" id="status">Initializing...</div>
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <div id="loadingText">Loading MediaPipe Hands...</div>
+        </div>
+    </div>
+
+    <script>
+        const videoElement = document.getElementById('video');
+        const canvasElement = document.getElementById('canvas');
+        const canvasCtx = canvasElement.getContext('2d', { willReadFrequently: true });
+        const statusEl = document.getElementById('status');
+        const loadingEl = document.getElementById('loading');
+        const loadingText = document.getElementById('loadingText');
+
+        let camera = null;
+        let hands = null;
+        let handsDetected = false;
+
+        // Setup canvas size
+        function setupCanvas() {
+            canvasElement.width = canvasElement.offsetWidth;
+            canvasElement.height = canvasElement.offsetHeight;
+        }
+
+        setupCanvas();
+        window.addEventListener('resize', setupCanvas);
+
+        // Draw glowing dot
+        function drawGlowingDot(x, y, radius = 6, glowSize = 15) {
+            const gradient = canvasCtx.createRadialGradient(x, y, 0, x, y, glowSize);
+            gradient.addColorStop(0, 'rgba(255, 215, 0, 0.8)');
+            gradient.addColorStop(0.5, 'rgba(255, 165, 0, 0.4)');
+            gradient.addColorStop(1, 'rgba(255, 215, 0, 0)');
+
+            canvasCtx.fillStyle = gradient;
+            canvasCtx.beginPath();
+            canvasCtx.arc(x, y, glowSize, 0, Math.PI * 2);
+            canvasCtx.fill();
+
+            // Core bright dot
+            canvasCtx.fillStyle = '#FFFF00';
+            canvasCtx.shadowColor = 'rgba(255, 215, 0, 1)';
+            canvasCtx.shadowBlur = 20;
+            canvasCtx.beginPath();
+            canvasCtx.arc(x, y, radius, 0, Math.PI * 2);
+            canvasCtx.fill();
+            canvasCtx.shadowBlur = 0;
+        }
+
+        // Draw glowing line
+        function drawGlowingLine(x1, y1, x2, y2) {
+            const glowColors = [
+                { color: 'rgba(255, 165, 0, 0.1)', width: 20 },
+                { color: 'rgba(255, 215, 0, 0.2)', width: 14 },
+                { color: 'rgba(255, 215, 0, 0.4)', width: 8 },
+                { color: 'rgba(255, 255, 0, 0.8)', width: 3 }
+            ];
+
+            glowColors.forEach(glow => {
+                canvasCtx.strokeStyle = glow.color;
+                canvasCtx.lineWidth = glow.width;
+                canvasCtx.lineCap = 'round';
+                canvasCtx.lineJoin = 'round';
+                canvasCtx.beginPath();
+                canvasCtx.moveTo(x1, y1);
+                canvasCtx.lineTo(x2, y2);
+                canvasCtx.stroke();
+            });
+
+            canvasCtx.strokeStyle = '#FFFF00';
+            canvasCtx.lineWidth = 2;
+            canvasCtx.shadowColor = 'rgba(255, 215, 0, 1)';
+            canvasCtx.shadowBlur = 15;
+            canvasCtx.lineCap = 'round';
+            canvasCtx.lineJoin = 'round';
+            canvasCtx.beginPath();
+            canvasCtx.moveTo(x1, y1);
+            canvasCtx.lineTo(x2, y2);
+            canvasCtx.stroke();
+            canvasCtx.shadowBlur = 0;
+        }
+
+        // Draw hand constellation
+        function drawHandConstellation(landmarks) {
+            if (!landmarks || landmarks.length === 0) return;
+
+            const width = canvasElement.width;
+            const height = canvasElement.height;
+
+            const points = landmarks.map(landmark => ({
+                x: landmark.x * width,
+                y: landmark.y * height,
+                z: landmark.z
+            }));
+
+            // Hand landmark connections
+            const connections = [
+                [0, 1], [1, 2], [2, 3], [3, 4],
+                [0, 5], [5, 6], [6, 7], [7, 8],
+                [0, 9], [9, 10], [10, 11], [11, 12],
+                [0, 13], [13, 14], [14, 15], [15, 16],
+                [0, 17], [17, 18], [18, 19], [19, 20],
+                [5, 9], [9, 13], [13, 17],
+                [5, 13], [9, 17]
+            ];
+
+            connections.forEach(([start, end]) => {
+                const p1 = points[start];
+                const p2 = points[end];
+                drawGlowingLine(p1.x, p1.y, p2.x, p2.y);
+            });
+
+            points.forEach((point) => {
+                drawGlowingDot(point.x, point.y);
+            });
+        }
+
+        // Handle results
+        function onResults(results) {
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                handsDetected = true;
+                statusEl.textContent = `✓ Hand detected (${results.multiHandLandmarks.length} hand${results.multiHandLandmarks.length > 1 ? 's' : ''})`;
+
+                results.multiHandLandmarks.forEach((landmarks) => {
+                    drawHandConstellation(landmarks);
+                });
+            } else {
+                if (handsDetected) {
+                    handsDetected = false;
+                    statusEl.textContent = '👋 Move your hand closer...';
+                }
+            }
+        }
+
+        // Initialize
+        setTimeout(() => {
+            try {
+                hands = new Hands({
+                    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+                });
+
+                hands.setOptions({
+                    maxNumHands: 2,
+                    modelComplexity: 1,
+                    minDetectionConfidence: 0.5,
+                    minTrackingConfidence: 0.5
+                });
+
+                hands.onResults(onResults);
+
+                loadingText.textContent = 'Starting camera...';
+
+                camera = new Camera(videoElement, {
+                    onFrame: async () => {
+                        await hands.send({ image: videoElement });
+                    },
+                    width: canvasElement.width,
+                    height: canvasElement.height
+                });
+
+                camera.start().then(() => {
+                    loadingEl.classList.add('hidden');
+                    statusEl.textContent = '👋 Move your hand...';
+                }).catch(err => {
+                    loadingText.textContent = 'Camera denied or unavailable';
+                });
+            } catch (err) {
+                console.error(err);
+                loadingText.textContent = 'Error loading libraries';
+            }
+        }, 1000);
+    </script>
+</body>
+</html>

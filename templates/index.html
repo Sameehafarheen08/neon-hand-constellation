@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Live Typing Camera</title>
+    <style>
+        body {
+            text-align: center;
+            background: black;
+            color: white;
+            font-family: Arial;
+            padding: 20px;
+        }
+        h1 { color: #FFD700; margin-bottom: 20px; }
+        input {
+            padding: 10px;
+            width: 300px;
+            font-size: 18px;
+            margin: 20px;
+            border: 2px solid #FFD700;
+            border-radius: 5px;
+            background: #222;
+            color: white;
+        }
+        .camera-container {
+            position: relative;
+            display: inline-block;
+            margin-top: 20px;
+        }
+        video, canvas {
+            width: 640px;
+            height: 480px;
+            border-radius: 10px;
+            border: 3px solid #FFD700;
+        }
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        #status {
+            margin-top: 20px;
+            font-size: 16px;
+            color: #FFD700;
+        }
+    </style>
+</head>
+<body>
+
+<h1>✨ Live Typing Camera Effect</h1>
+<p id="status">Loading camera...</p>
+
+<input type="text" id="textInput" placeholder="Type your message...">
+
+<div class="camera-container">
+    <video id="video" autoplay playsinline></video>
+    <canvas id="canvas"></canvas>
+</div>
+
+<script>
+const video = document.getElementById("video");
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+const input = document.getElementById("textInput");
+const status = document.getElementById("status");
+
+// Access webcam
+navigator.mediaDevices.getUserMedia({ video: true })
+.then(stream => {
+    video.srcObject = stream;
+    status.textContent = "Camera ready! Start typing...";
+    video.addEventListener("play", draw);
+})
+.catch(err => {
+    console.error("Camera error:", err);
+    status.textContent = "Camera access denied or not available. Error: " + err.message;
+});
+
+// Draw video + text continuously
+function draw() {
+    if (video.videoWidth === 0) return;
+    
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    // Text style
+    ctx.font = "40px Arial";
+    ctx.fillStyle = "yellow";
+    ctx.shadowColor = "black";
+    ctx.shadowBlur = 10;
+
+    // Draw typed text
+    ctx.fillText(input.value, 50, 100);
+
+    requestAnimationFrame(draw);
+}
+</script>
+
+</body>
+</html>

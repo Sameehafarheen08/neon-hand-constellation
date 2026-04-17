@@ -1,0 +1,30 @@
+body {
+    text-align: center;
+    background: black;
+    color: white;
+    font-family: Arial;
+}
+
+input {
+    padding: 10px;
+    width: 300px;
+    font-size: 18px;
+    margin: 20px;
+}
+
+.camera-container {
+    position: relative;
+    display: inline-block;
+}
+
+video, canvas {
+    width: 640px;
+    height: 480px;
+    border-radius: 10px;
+}
+
+canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+}
